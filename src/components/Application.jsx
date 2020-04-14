@@ -2,57 +2,59 @@ import React, { Component } from "react";
 
 import Posts from "./Posts";
 import { firestore } from "../firebase";
+import { collectIdsAndDocs } from "../utilities";
 
 class Application extends Component {
   state = {
-    posts: [
-      {
-        id: "1",
-        title: "A Very Hot Take",
-        content:
-          "Lorem, ipsum dolor sit amet consectetur adipisicing elit. Perferendis suscipit repellendus modi unde cumque, fugit in ad necessitatibus eos sed quasi et! Commodi repudiandae tempora ipsum fugiat. Quam, officia excepturi!",
-        user: {
-          uid: "123",
-          displayName: "Bill Murray",
-          email: "billmurray@mailinator.com",
-          photoURL: "https://www.fillmurray.com/300/300",
-        },
-        stars: 1,
-        comments: 47,
-      },
-      {
-        id: "2",
-        title: "The Sauciest of Opinions",
-        content:
-          "Lorem, ipsum dolor sit amet consectetur adipisicing elit. Perferendis suscipit repellendus modi unde cumque, fugit in ad necessitatibus eos sed quasi et! Commodi repudiandae tempora ipsum fugiat. Quam, officia excepturi!",
-        user: {
-          uid: "456",
-          displayName: "Mill Burray",
-          email: "notbillmurray@mailinator.com",
-          photoURL: "https://www.fillmurray.com/400/400",
-        },
-        stars: 3,
-        comments: 0,
-      },
-    ],
+    posts: [],
   };
 
-  componentDidMount = async () => {
-    // snapshot - represents database state in that moment (real-time)
-    const snapshot = await firestore.collection("posts").get();
-    // console.log({ snapshot });
+  unSubscribe = null;
 
-    // snapshot -> documents [rows] -> data
-    const posts = snapshot.docs.map((doc) => {
-      return { id: doc.id, ...doc.data() };
+  componentDidMount = async () => {
+    // // snapshot - represents database state in that moment (real-time)
+    // const snapshot = await firestore.collection("posts").get();
+    // // console.log({ snapshot });
+    // // snapshot -> documents [rows] -> data
+    // const posts = snapshot.docs.map(collectIdsAndDocs);
+    // this.setState({ posts });
+
+    // subscribe to the data instead
+    // @returns - a function you can call to unsubsribe to the database.
+    this.unSubscribe = firestore.collection("posts").onSnapshot((snapshot) => {
+      const posts = snapshot.docs.map(collectIdsAndDocs);
+      this.setState({ posts });
     });
+  };
+
+  componentWillUnmount = () => {
+    this.unSubscribe();
+  };
+
+  handleRemove = async (id) => {
+    const allPosts = this.state.posts;
+
+    // remove from db using path
+    await firestore.doc(`posts/${id}`).delete();
+
+    // new array without post with id
+    const posts = allPosts.filter((post) => post.id !== id);
 
     this.setState({ posts });
   };
 
-  handleCreate = (post) => {
+  handleCreate = async (post) => {
     const { posts } = this.state;
-    this.setState({ posts: [post, ...posts] });
+
+    await firestore.collection("posts").add(post); // componentdidmount subscribed to database live pulls new data
+
+    // // inserts post to the database and returns path to document.
+    // const docRef = await firestore.collection("posts").add(post);
+    // // fetch post returns a document* snapshot promise
+    // const doc = await docRef.get();
+    // // extract data from promise snapshot
+    // const newPost = collectIdsAndDocs(doc);
+    // this.setState({ posts: [newPost, ...posts] });
   };
 
   render() {
@@ -61,7 +63,11 @@ class Application extends Component {
     return (
       <main className="Application">
         <h1>Think Piece</h1>
-        <Posts posts={posts} onCreate={this.handleCreate} />
+        <Posts
+          posts={posts}
+          onCreate={this.handleCreate}
+          onRemove={this.handleRemove}
+        />
       </main>
     );
   }
