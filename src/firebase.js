@@ -1,5 +1,6 @@
 import firebase from "firebase/app";
 import "firebase/firestore";
+import "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,6 +18,16 @@ firebase.initializeApp(firebaseConfig);
 // firebase.analytics();
 
 export const firestore = firebase.firestore(); // our database i.e. firestore
+
+// authentication - sign in
+export const auth = firebase.auth; // authentication setup
+export const provider = new firebase.auth.GoogleAuthProvider(); // names of auth providers used
+export const signInWithGoogle = () => auth().signInWithPopup(provider); // sign in function to be used
+
+// sign out
+export const signOut = () => {
+  auth().signOut();
+};
 
 window.firebase = firebase; // enable use to debug test firebase on the chrome dev tools (bad practice)
 
