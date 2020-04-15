@@ -29,6 +29,57 @@ export const signOut = () => {
   auth().signOut();
 };
 
+/* Saving user document - Authenticating a user via Firestore both via email/pass or google sign in doesn't create
+a document in the db. We must manually call this function everything authentication happends 
+with user's returned object passed in to save to db. */
+export const createUserProfileDocument = async (user, additionalData) => {
+  if (!user) {
+    // of no user don't do anything
+    return;
+  }
+  // get a reference in db where a user profile might be
+  const userRef = firestore.doc(`users/${user.uid}`); // get user from db
+
+  // Go and fetch document from that location
+  const snapshot = await userRef.get(); // gets that document (user row) from db
+
+  if (!snapshot.exists) {
+    // if snapshot exists; set photoUrl (manual email login may not have this vs google sign in)
+    // update user doc with new fields added
+    const { displayName, email, photoURL } = user;
+
+    const createdAt = new Date();
+
+    try {
+      await userRef.set({
+        displayName,
+        email,
+        photoURL,
+        createdAt,
+        ...additionalData,
+      });
+    } catch (error) {
+      console.error("Error creating user : ", error.message);
+    }
+  }
+
+  return getUserDocument(user.uid); // snap does exist, just get it
+};
+
+export const getUserDocument = async (uid) => {
+  if (!uid) {
+    return null;
+  }
+
+  try {
+    const userDocument = await firestore.collection("users").doc(uid).get();
+
+    return { uid, ...userDocument.data() };
+  } catch (error) {
+    console.error("Error fetching user...", error.message);
+  }
+};
+
 window.firebase = firebase; // enable use to debug test firebase on the chrome dev tools (bad practice)
 
 export default firebase;
